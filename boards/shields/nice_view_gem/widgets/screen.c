@@ -28,6 +28,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include "profile.h"
 #include "screen.h"
 #include "sleep.h"
+#include "wpm.h"
 
 struct connection_status_state {
     bool connected;
@@ -54,6 +55,7 @@ static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_st
     draw_profile_status(canvas, state);
     draw_battery_status(canvas, state);
     draw_battery_peripheral_status(canvas, state);
+    draw_wpm_status(canvas, state);
 }
 
 /**
@@ -197,6 +199,36 @@ ZMK_SUBSCRIPTION(widget_output_status, zmk_ble_active_profile_changed);
 #endif
 
 /**
+ * WPM status
+ **/
+
+struct wpm_status_state {
+    uint8_t wpm;
+};
+
+static void set_wpm_status(struct zmk_widget_screen *widget, struct wpm_status_state state) {
+    widget->state.wpm = state.wpm;
+    wpm_push_sample(state.wpm);
+    draw_top(widget->obj, widget->cbuf, &widget->state);
+}
+
+static void wpm_status_update_cb(struct wpm_status_state state) {
+    struct zmk_widget_screen *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_wpm_status(widget, state); }
+}
+
+static struct wpm_status_state wpm_status_get_state(const zmk_event_t *eh) {
+    const struct zmk_wpm_state_changed *ev = as_zmk_wpm_state_changed(eh);
+    return (struct wpm_status_state){
+        .wpm = (ev != NULL) ? (uint8_t)ev->state : 0,
+    };
+}
+
+ZMK_DISPLAY_WIDGET_LISTENER(widget_wpm_status, struct wpm_status_state,
+                            wpm_status_update_cb, wpm_status_get_state);
+ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
+
+/**
  * Activity state handling for sleep screen
  **/
 
@@ -253,6 +285,7 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     widget_battery_peripheral_status_init();
     widget_layer_status_init();
     widget_output_status_init();
+    widget_wpm_status_init();
 
     return 0;
 }
