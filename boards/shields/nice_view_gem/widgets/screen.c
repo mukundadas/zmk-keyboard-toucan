@@ -40,22 +40,40 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * Draw buffers
  **/
 
-static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(widget, 0);
+/*
+ * Rotate the upright landscape scratch buffer (LANDSCAPE_W x LANDSCAPE_H) 90deg
+ * into the panel-shaped display buffer (SCREEN_WIDTH x SCREEN_HEIGHT). The panel
+ * is physically mounted rotated, so this makes the landscape layout read upright.
+ * Mapping: display(143 - ly, lx) = land(lx, ly).
+ */
+static void rotate_to_panel(const lv_color_t *land, lv_color_t *disp) {
+    for (int ly = 0; ly < LANDSCAPE_H; ly++) {
+        int dcol = SCREEN_WIDTH - 1 - ly;
+        const lv_color_t *lrow = &land[ly * LANDSCAPE_W];
+        for (int lx = 0; lx < LANDSCAPE_W; lx++) {
+            disp[lx * SCREEN_WIDTH + dcol] = lrow[lx];
+        }
+    }
+}
+
+static void draw_top(struct zmk_widget_screen *widget) {
+    const struct status_state *state = &widget->state;
+    lv_obj_t *canvas = widget->land; /* draw everything upright here */
     fill_background(canvas);
 
     if (is_sleep_screen_active()) {
         draw_sleep_screen(canvas);
-        return;
+    } else {
+        draw_output_status(canvas, state);
+        draw_profile_status(canvas, state);
+        draw_layer_status(canvas, state);
+        draw_battery_status(canvas, state);
+        draw_battery_peripheral_status(canvas, state);
+        draw_wpm_status(canvas, state);
     }
 
-    // Draw widgets
-    draw_output_status(canvas, state);
-    draw_profile_status(canvas, state);
-    draw_layer_status(canvas, state);
-    draw_battery_status(canvas, state);
-    draw_battery_peripheral_status(canvas, state);
-    draw_wpm_status(canvas, state);
+    rotate_to_panel(widget->cbuf2, widget->cbuf);
+    lv_obj_invalidate(widget->canvas);
 }
 
 /**
@@ -69,7 +87,7 @@ static void set_battery_status(struct zmk_widget_screen *widget,
 #endif /* IS_ENABLED(CONFIG_USB_DEVICE_STACK) */
     widget->state.battery = state.level;
 
-    draw_top(widget->obj, widget->cbuf, &widget->state);
+    draw_top(widget);
 }
 
 static void battery_status_update_cb(struct battery_status_state state) {
@@ -107,7 +125,7 @@ static void set_battery_peripheral_status(struct zmk_widget_screen *widget,
     zmk_split_central_get_peripheral_battery_level(0, &level);
 
     widget->state.battery_p = level;
-    draw_top(widget->obj, widget->cbuf, &widget->state);
+    draw_top(widget);
 }
 
 static void battery_peripheral_status_update_cb(struct battery_peripheral_status_state state) {
@@ -139,7 +157,7 @@ ZMK_SUBSCRIPTION(widget_battery_peripheral_status, zmk_peripheral_battery_state_
 
 static void set_layer_status(struct zmk_widget_screen *widget, struct layer_status_state state) {
     widget->state.layer_index = zmk_keymap_highest_layer_active();
-    draw_top(widget->obj, widget->cbuf3, &widget->state);
+    draw_top(widget);
 }
 
 static void layer_status_update_cb(struct layer_status_state state) {
@@ -170,7 +188,7 @@ static void set_output_status(struct zmk_widget_screen *widget,
     widget->state.active_profile_connected = state->active_profile_connected;
     widget->state.active_profile_bonded = state->active_profile_bonded;
 
-    draw_top(widget->obj, widget->cbuf, &widget->state);
+    draw_top(widget);
 }
 
 static void output_status_update_cb(struct output_status_state state) {
@@ -212,7 +230,7 @@ static void set_wpm_status(struct zmk_widget_screen *widget, struct wpm_status_s
     if (state.wpm > 0) {
         wpm_push_sample(state.wpm);
     }
-    draw_top(widget->obj, widget->cbuf, &widget->state);
+    draw_top(widget);
 }
 
 static void wpm_status_update_cb(struct wpm_status_state state) {
@@ -238,7 +256,7 @@ ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
 static void force_redraw_all_widgets(void) {
     struct zmk_widget_screen *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
-        draw_top(widget->obj, widget->cbuf, &widget->state);
+        draw_top(widget);
     }
 }
 
@@ -279,9 +297,18 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
     lv_obj_set_size(widget->obj, SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    /* Visible canvas: panel-shaped (portrait). We never draw widgets here
+     * directly; rotate_to_panel() fills it from the landscape scratch. */
     lv_obj_t *top = lv_canvas_create(widget->obj);
     lv_obj_align(top, LV_ALIGN_TOP_RIGHT, 0, 0);
     lv_canvas_set_buffer(top, widget->cbuf, SCREEN_WIDTH, SCREEN_HEIGHT, LV_IMG_CF_TRUE_COLOR);
+    widget->canvas = top;
+
+    /* Hidden scratch canvas: upright landscape. All widgets draw here. */
+    lv_obj_t *land = lv_canvas_create(widget->obj);
+    lv_canvas_set_buffer(land, widget->cbuf2, LANDSCAPE_W, LANDSCAPE_H, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_add_flag(land, LV_OBJ_FLAG_HIDDEN);
+    widget->land = land;
 
     sys_slist_append(&widgets, &widget->node);
     widget_battery_status_init();

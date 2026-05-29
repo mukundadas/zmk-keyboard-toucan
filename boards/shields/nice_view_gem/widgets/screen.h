@@ -7,6 +7,8 @@
 struct zmk_widget_screen {
     sys_snode_t node;
     lv_obj_t *obj;
+    lv_obj_t *canvas; /* visible, panel-shaped (portrait) buffer = cbuf  */
+    lv_obj_t *land;   /* hidden, upright landscape scratch buffer = cbuf2 */
     lv_color_t cbuf[SCREEN_WIDTH * SCREEN_HEIGHT];
     lv_color_t cbuf2[SCREEN_WIDTH * SCREEN_HEIGHT];
     lv_color_t cbuf3[SCREEN_WIDTH * SCREEN_HEIGHT];

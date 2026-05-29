@@ -14,7 +14,7 @@ void fill_background(lv_obj_t *canvas) {
     rect_black_dsc.bg_color = lv_color_white();  // set background color to white
     init_rect_dsc(&rect_black_dsc, LVGL_BACKGROUND);
 
-    lv_canvas_draw_rect(canvas, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, &rect_black_dsc);
+    lv_canvas_draw_rect(canvas, 0, 0, LANDSCAPE_W, LANDSCAPE_H, &rect_black_dsc);
 }
 
 void init_label_dsc(lv_draw_label_dsc_t *label_dsc, lv_color_t color, const lv_font_t *font,

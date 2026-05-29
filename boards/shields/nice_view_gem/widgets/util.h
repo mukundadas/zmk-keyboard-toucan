@@ -3,8 +3,15 @@
 #include <lvgl.h>
 #include <zmk/endpoints.h>
 
+/* Physical panel buffer (portrait); the panel is mounted rotated 90deg. */
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
+
+/* Logical canvas we actually lay widgets out on, upright/landscape. The whole
+ * canvas is rotated 90deg into the panel buffer before flushing, so everything
+ * (text included) reads horizontally. LANDSCAPE_W*LANDSCAPE_H == panel size. */
+#define LANDSCAPE_W 168
+#define LANDSCAPE_H 144
 
 #define BUFFER_SIZE 168
 #define BUFFER_OFFSET_MIDDLE 0
