@@ -25,9 +25,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include "battery_peripheral.h"
 #include "layer.h"
 #include "output.h"
+#include "profile.h"
 #include "screen.h"
 #include "sleep.h"
-#include "wpm.h"
+#include "bongo.h"
 
 struct connection_status_state {
     bool connected;
@@ -50,10 +51,11 @@ static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_st
 
     // Draw widgets
     draw_output_status(canvas, state);
+    draw_profile_status(canvas, state);
     draw_layer_status(canvas, state);
     draw_battery_status(canvas, state);
     draw_battery_peripheral_status(canvas, state);
-    draw_wpm_status(canvas, state);
+    draw_bongo_status(canvas, state);
 }
 
 /**
@@ -206,10 +208,7 @@ struct wpm_status_state {
 
 static void set_wpm_status(struct zmk_widget_screen *widget, struct wpm_status_state state) {
     widget->state.wpm = state.wpm;
-    /* Freeze the graph while idle: only advance the trace when actually typing. */
-    if (state.wpm > 0) {
-        wpm_push_sample(state.wpm);
-    }
+    bongo_set_wpm(state.wpm);
     draw_top(widget->obj, widget->cbuf, &widget->state);
 }
 
@@ -238,6 +237,16 @@ static void force_redraw_all_widgets(void) {
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
         draw_top(widget->obj, widget->cbuf, &widget->state);
     }
+}
+
+/* Drives the bongo cat: only repaints while typing, at a WPM-scaled rate. */
+static void bongo_anim_cb(lv_timer_t *timer) {
+    if (!bongo_is_typing()) {
+        return;
+    }
+    bongo_tick();
+    lv_timer_set_period(timer, bongo_period_ms());
+    force_redraw_all_widgets();
 }
 
 static int display_activity_event_handler(const zmk_event_t *eh) {
@@ -287,6 +296,12 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     widget_layer_status_init();
     widget_output_status_init();
     widget_wpm_status_init();
+
+    static bool bongo_timer_started = false;
+    if (!bongo_timer_started) {
+        lv_timer_create(bongo_anim_cb, 150, NULL);
+        bongo_timer_started = true;
+    }
 
     return 0;
 }
