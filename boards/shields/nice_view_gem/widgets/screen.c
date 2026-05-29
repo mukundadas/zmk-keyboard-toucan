@@ -208,7 +208,10 @@ struct wpm_status_state {
 
 static void set_wpm_status(struct zmk_widget_screen *widget, struct wpm_status_state state) {
     widget->state.wpm = state.wpm;
-    wpm_push_sample(state.wpm);
+    /* Freeze the graph while idle: only advance the trace when actually typing. */
+    if (state.wpm > 0) {
+        wpm_push_sample(state.wpm);
+    }
     draw_top(widget->obj, widget->cbuf, &widget->state);
 }
 
