@@ -16,7 +16,10 @@ manifest:
       import: app/west.yml
     - name: cirque-input-module
       remote: geeksville
-      revision: toucan
+      # Pin to a fixed commit instead of the moving `toucan` branch so the
+      # right (trackpad) half builds reproducibly and can't break from an
+      # upstream push. This SHA is the current `toucan` HEAD (2026-01-26).
+      revision: effec100f0cd3a38e7fba3adfea394586cc84cab
     - name: zmk-rgbled-widget
       remote: caksoylar
       revision: v0.3
