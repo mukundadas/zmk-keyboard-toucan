@@ -25,7 +25,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include "battery_peripheral.h"
 #include "layer.h"
 #include "output.h"
-#include "profile.h"
 #include "screen.h"
 #include "sleep.h"
 #include "wpm.h"
@@ -52,7 +51,6 @@ static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_st
     // Draw widgets
     draw_output_status(canvas, state);
     draw_layer_status(canvas, state);
-    draw_profile_status(canvas, state);
     draw_battery_status(canvas, state);
     draw_battery_peripheral_status(canvas, state);
     draw_wpm_status(canvas, state);
