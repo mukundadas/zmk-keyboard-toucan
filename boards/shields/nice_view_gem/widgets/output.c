@@ -20,66 +20,69 @@ static const char *profile_names[] = {
 };
 
 /*
- * Bottom status band. The panel is mounted rotated 90deg, so the icons below
- * are drawn upright *on screen* via rp(): screen-right maps to canvas +y and
- * screen-up maps to canvas +x. Text still flows in the panel's native (rotated)
- * direction, matching the layer/WPM labels.
+ * Bottom status band. Everything here is drawn plainly in canvas space so it
+ * shares the same 90deg rotation as the layer / WPM text for a consistent look.
+ * Layout runs along +x (the text reading direction): [icon] [slot] [name].
  */
-#define BAND_Y 140
-
-/* Map an icon's screen-local point (u = right, v = down) to a canvas point,
- * given the canvas coords (ax, ay) of the icon's on-screen top-left. */
-static inline lv_point_t rp(int ax, int ay, int u, int v) {
-    return (lv_point_t){.x = (lv_coord_t)(ax - v), .y = (lv_coord_t)(ay + u)};
-}
+#define BAND_Y 134      /* top of the strip                  */
+#define ICON_W 16       /* icon footprint (x)                */
+#define ICON_H 24       /* icon footprint (y)                */
+#define ICON_LW 3       /* bold strokes so it reads clearly  */
 
 /*
  * Bluetooth rune: vertical stem with two crossing diagonals forming the
- * right-hand diamonds. One 6-point polyline, drawn upright on screen.
+ * right-hand diamonds. One 6-point polyline.
  */
-static void draw_bt_icon(lv_obj_t *canvas, int ax, int ay) {
+static void draw_bt_icon(lv_obj_t *canvas, int bx) {
     lv_draw_line_dsc_t dsc;
-    init_line_dsc(&dsc, LVGL_FOREGROUND, 2);
+    init_line_dsc(&dsc, LVGL_FOREGROUND, ICON_LW);
+
+    int cx = bx + ICON_W / 2;
+    int top = BAND_Y;
+    int bot = BAND_Y + ICON_H;
+    int q = ICON_H / 4;
 
     lv_point_t pts[6] = {
-        rp(ax, ay, 1, 4),   /* upper-left  */
-        rp(ax, ay, 11, 12), /* lower-right */
-        rp(ax, ay, 6, 16),  /* bottom apex */
-        rp(ax, ay, 6, 0),   /* up the stem */
-        rp(ax, ay, 11, 4),  /* upper-right */
-        rp(ax, ay, 1, 12),  /* lower-left  */
+        {.x = bx, .y = top + q},          /* upper-left  */
+        {.x = bx + ICON_W, .y = bot - q}, /* lower-right */
+        {.x = cx, .y = bot},              /* bottom apex */
+        {.x = cx, .y = top},              /* up the stem */
+        {.x = bx + ICON_W, .y = top + q}, /* upper-right */
+        {.x = bx, .y = bot - q},          /* lower-left  */
     };
     lv_canvas_draw_line(canvas, pts, 6, &dsc);
 }
 
 /*
- * USB trident: vertical stem, arrowhead on top, a round and a square branch,
- * and a filled base. Drawn upright on screen.
+ * USB trident: vertical stem, arrowhead at the top, a round and a square
+ * branch, and a filled base.
  */
-static void draw_usb_icon(lv_obj_t *canvas, int ax, int ay) {
+static void draw_usb_icon(lv_obj_t *canvas, int bx) {
     lv_draw_line_dsc_t dsc;
-    init_line_dsc(&dsc, LVGL_FOREGROUND, 2);
+    init_line_dsc(&dsc, LVGL_FOREGROUND, ICON_LW);
 
-    lv_point_t stem[2] = {rp(ax, ay, 6, 1), rp(ax, ay, 6, 16)};
+    int cx = bx + ICON_W / 2;
+    int top = BAND_Y;
+    int bot = BAND_Y + ICON_H;
+
+    lv_point_t stem[2] = {{.x = cx, .y = top + 1}, {.x = cx, .y = bot}};
     lv_canvas_draw_line(canvas, stem, 2, &dsc);
 
-    lv_point_t arrow[3] = {rp(ax, ay, 3, 4), rp(ax, ay, 6, 0), rp(ax, ay, 9, 4)};
+    lv_point_t arrow[3] = {
+        {.x = cx - 4, .y = top + 6}, {.x = cx, .y = top}, {.x = cx + 4, .y = top + 6}};
     lv_canvas_draw_line(canvas, arrow, 3, &dsc);
 
-    lv_point_t lbranch[2] = {rp(ax, ay, 6, 7), rp(ax, ay, 1, 11)};
+    lv_point_t lbranch[2] = {{.x = cx, .y = top + 11}, {.x = bx, .y = top + 16}};
     lv_canvas_draw_line(canvas, lbranch, 2, &dsc);
 
-    lv_point_t rbranch[2] = {rp(ax, ay, 6, 10), rp(ax, ay, 11, 6)};
+    lv_point_t rbranch[2] = {{.x = cx, .y = top + 15}, {.x = bx + ICON_W, .y = top + 10}};
     lv_canvas_draw_line(canvas, rbranch, 2, &dsc);
 
     lv_draw_rect_dsc_t fill;
     init_rect_dsc(&fill, LVGL_FOREGROUND);
-    lv_point_t ld = rp(ax, ay, 1, 11);  /* left dot  */
-    lv_canvas_draw_rect(canvas, ld.x - 1, ld.y - 1, 3, 3, &fill);
-    lv_point_t rt = rp(ax, ay, 11, 6);  /* right tip */
-    lv_canvas_draw_rect(canvas, rt.x - 1, rt.y - 1, 3, 3, &fill);
-    lv_point_t base = rp(ax, ay, 6, 16); /* plug base */
-    lv_canvas_draw_rect(canvas, base.x - 2, base.y - 2, 4, 4, &fill);
+    lv_canvas_draw_rect(canvas, bx - 1, top + 14, 4, 4, &fill);            /* left dot  */
+    lv_canvas_draw_rect(canvas, bx + ICON_W - 2, top + 8, 4, 4, &fill);    /* right tip */
+    lv_canvas_draw_rect(canvas, cx - 3, bot - 2, 6, 4, &fill);             /* plug base */
 }
 
 /* A circle with the active BLE slot number (1-based) inside. */
@@ -90,42 +93,42 @@ static void draw_slot_circle(lv_obj_t *canvas, int x, int profile_index) {
     circ.border_color = LVGL_FOREGROUND;
     circ.border_width = 2;
     circ.radius = LV_RADIUS_CIRCLE;
-    lv_canvas_draw_rect(canvas, x, BAND_Y, 16, 16, &circ);
+    lv_canvas_draw_rect(canvas, x, BAND_Y + 3, 18, 18, &circ);
 
     char num[2];
     snprintf(num, sizeof(num), "%d", profile_index + 1);
     lv_draw_label_dsc_t label_dsc;
     init_label_dsc(&label_dsc, LVGL_FOREGROUND, &quinquefive_8, LV_TEXT_ALIGN_CENTER);
-    lv_canvas_draw_text(canvas, x, BAND_Y + 5, 16, &label_dsc, num);
+    lv_canvas_draw_text(canvas, x, BAND_Y + 9, 18, &label_dsc, num);
 }
 
 static void draw_name(lv_obj_t *canvas, int x, const char *name) {
     lv_draw_label_dsc_t label_dsc;
     init_label_dsc(&label_dsc, LVGL_FOREGROUND, &quinquefive_8, LV_TEXT_ALIGN_LEFT);
-    lv_canvas_draw_text(canvas, x, BAND_Y + 5, SCREEN_WIDTH - x, &label_dsc, name);
+    lv_canvas_draw_text(canvas, x, BAND_Y + 9, SCREEN_WIDTH - x, &label_dsc, name);
 }
 
 void draw_output_status(lv_obj_t *canvas, const struct status_state *state) {
     switch (state->selected_endpoint.transport) {
     case ZMK_TRANSPORT_USB:
-        draw_usb_icon(canvas, 30, 142);
+        draw_usb_icon(canvas, 8);
         draw_name(canvas, 34, "USB");
         break;
 
     case ZMK_TRANSPORT_BLE: {
-        draw_bt_icon(canvas, 30, 142);
+        draw_bt_icon(canvas, 8);
         int idx = state->active_profile_index;
-        draw_slot_circle(canvas, 34, idx);
+        draw_slot_circle(canvas, 32, idx);
         if (state->active_profile_bonded && state->active_profile_connected) {
             const char *name = (idx >= 0 && idx < (int)(sizeof(profile_names) /
                                                         sizeof(profile_names[0])))
                                    ? profile_names[idx]
                                    : "BT";
-            draw_name(canvas, 54, name);
+            draw_name(canvas, 56, name);
         } else if (state->active_profile_bonded) {
-            draw_name(canvas, 54, "..."); /* bonded, not connected */
+            draw_name(canvas, 56, "..."); /* bonded, not connected */
         } else {
-            draw_name(canvas, 54, "OPEN"); /* waiting to pair */
+            draw_name(canvas, 56, "OPEN"); /* waiting to pair */
         }
         break;
     }
