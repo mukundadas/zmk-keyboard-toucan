@@ -12,6 +12,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/events/wpm_state_changed.h>
+#include <zmk/events/hid_indicators_changed.h>
+#include <zmk/hid_indicators.h>
 #include <zmk/battery.h>
 #include <zmk/ble.h>
 #include <zmk/display.h>
@@ -23,6 +25,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include "battery.h"
 #include "battery_peripheral.h"
+#include "caps.h"
 #include "layer.h"
 #include "output.h"
 #include "profile.h"
@@ -70,6 +73,7 @@ static void draw_top(struct zmk_widget_screen *widget) {
         draw_battery_status(canvas, state);
         draw_battery_peripheral_status(canvas, state);
         draw_wpm_status(canvas, state);
+        draw_caps_status(canvas, state);
     }
 
     rotate_to_panel(widget->cbuf2, widget->cbuf);
@@ -250,6 +254,39 @@ ZMK_DISPLAY_WIDGET_LISTENER(widget_wpm_status, struct wpm_status_state,
 ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
 
 /**
+ * Caps Lock status (host HID LED indicators)
+ **/
+
+#define HID_INDICATOR_CAPS_LOCK 0x02
+
+struct caps_status_state {
+    bool caps_active;
+};
+
+static void set_caps_status(struct zmk_widget_screen *widget, struct caps_status_state state) {
+    widget->state.caps_active = state.caps_active;
+    draw_top(widget);
+}
+
+static void caps_status_update_cb(struct caps_status_state state) {
+    struct zmk_widget_screen *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_caps_status(widget, state); }
+}
+
+static struct caps_status_state caps_status_get_state(const zmk_event_t *eh) {
+    const struct zmk_hid_indicators_changed *ev = as_zmk_hid_indicators_changed(eh);
+    zmk_hid_indicators_t indicators =
+        (ev != NULL) ? ev->indicators : zmk_hid_indicators_get_current_profile();
+    return (struct caps_status_state){
+        .caps_active = (indicators & HID_INDICATOR_CAPS_LOCK) != 0,
+    };
+}
+
+ZMK_DISPLAY_WIDGET_LISTENER(widget_caps_status, struct caps_status_state,
+                            caps_status_update_cb, caps_status_get_state);
+ZMK_SUBSCRIPTION(widget_caps_status, zmk_hid_indicators_changed);
+
+/**
  * Activity state handling for sleep screen
  **/
 
@@ -316,6 +353,7 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     widget_layer_status_init();
     widget_output_status_init();
     widget_wpm_status_init();
+    widget_caps_status_init();
 
     return 0;
 }
