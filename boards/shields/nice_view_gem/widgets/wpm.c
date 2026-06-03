@@ -4,12 +4,11 @@
 #include "wpm.h"
 #include "../assets/custom_fonts.h"
 
-/* Landscape layout: horizontal graph, oldest sample left -> newest right. */
-#define GRAPH_X 25
-#define GRAPH_Y 86
-#define GRAPH_H 30
-#define GRAPH_STEP 2                       /* (WPM_SAMPLES-1) * GRAPH_STEP wide */
-#define GRAPH_W ((WPM_SAMPLES - 1) * GRAPH_STEP)
+#define GRAPH_X 12
+#define GRAPH_Y 96
+#define GRAPH_W 120
+#define GRAPH_H 34
+#define GRAPH_STEP 2  /* WPM_SAMPLES * GRAPH_STEP == GRAPH_W */
 #define MIN_SCALE 20
 #define LINE_WIDTH 2
 
@@ -74,5 +73,5 @@ void draw_wpm_status(lv_obj_t *canvas, const struct status_state *state) {
     snprintf(buf, sizeof(buf), "WPM %u/%u", (unsigned)state->wpm, (unsigned)peak);
     lv_draw_label_dsc_t label_dsc;
     init_label_dsc(&label_dsc, LVGL_FOREGROUND, &quinquefive_8, LV_TEXT_ALIGN_CENTER);
-    lv_canvas_draw_text(canvas, 0, 68, LANDSCAPE_W, &label_dsc, buf);
+    lv_canvas_draw_text(canvas, 0, 82, SCREEN_WIDTH, &label_dsc, buf);
 }
