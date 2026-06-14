@@ -27,10 +27,11 @@
             bindings = <&kp CAPS>;
         };
 
-        /* Both inner thumbs (NAV + SYM layer keys) tapped together = Esc */
+        /* Both innermost thumbs (Space + Return) tapped together = Esc.
+           Kept off the NAV/SYM layer keys so the ADJ tri-layer still works. */
         combo_esc {
             timeout-ms = <50>;
-            key-positions = <37 40>;
+            key-positions = <38 39>;
             bindings = <&kp ESC>;
         };
     };
